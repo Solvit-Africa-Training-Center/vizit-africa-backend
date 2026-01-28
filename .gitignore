@@ -1,0 +1,53 @@
+# ----------------------
+# Python
+# ----------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ----------------------
+# Virtual Environment
+# ----------------------
+venv/
+env/
+*.venv
+
+# ----------------------
+# Environment variables
+# ----------------------
+.env
+.env.*
+
+# ----------------------
+# Django
+# ----------------------
+*.log
+*.pot
+*.pyc
+*.pyo
+db.sqlite3
+media/
+staticfiles/
+# Local media & static files
+/static/
+/media/
+
+# ----------------------
+# PostgreSQL / database dumps
+# ----------------------
+*.sql
+*.dump
+
+# ----------------------
+# VSCode / IDEs
+# ----------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ----------------------
+# OS files
+# ----------------------
+.DS_Store
+Thumbs.db
