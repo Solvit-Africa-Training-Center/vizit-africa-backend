@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'bookings',
     'tickets',
+    'transactions',
 
     # Third-party
     'rest_framework',
