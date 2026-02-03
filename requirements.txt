@@ -6,6 +6,7 @@ djangorestframework==3.16.1
 mysqlclient==2.2.7
 pillow==12.1.0
 psycopg2-binary==2.9.11
+PyMySQL==1.1.2
 python-decouple==3.8
 qrcode==8.2
 reportlab==4.4.9
