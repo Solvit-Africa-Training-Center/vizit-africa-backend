@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     'transactions',
     'vendors',
 
+    "drf_yasg",
+
     # Third-party
     'rest_framework',
     'rest_framework.authtoken',
