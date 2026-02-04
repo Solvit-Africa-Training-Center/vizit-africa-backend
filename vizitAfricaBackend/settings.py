@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'bookings',
     'tickets',
     'transactions',
+    'services',
+    'vendors',
 
     # Third-party
     'rest_framework',
