@@ -3,23 +3,38 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-
-from accounts.serializers import GoogleLoginSerializer
-
 
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from accounts.models import User
+from accounts.models import User, VerificationCode
 from accounts.serializers import (
     UserRegisterSerializer,
     VerifyEmailSerializer,
     CustomTokenObtainPairSerializer,
+    UserPublicSerializer,
+    GoogleLoginSerializer,
 )
 from accounts.permissions import IsAdmin
+from accounts.utils.code_generator import generate_verification_code
+from accounts.utils.send_email import send_verification_email
 
 
+# ===============================
+# Helper: Generate JWT + user payload
+# ===============================
+def get_jwt_user_response(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        "refresh": str(refresh),
+        "access": str(refresh.access_token),
+        "user": UserPublicSerializer(user).data,
+    }
+
+
+# ===============================
+# User ViewSet
+# ===============================
 class UserViewSet(viewsets.ModelViewSet):
     """
     Endpoints:
@@ -40,24 +55,29 @@ class UserViewSet(viewsets.ModelViewSet):
             return [IsAdmin()]
         return super().get_permissions()
 
+    # List users (admin only)
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset().only(
             "id", "full_name", "email", "role", "created_at"
         )
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = UserPublicSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # Logged-in user profile
     @action(detail=False, methods=["get"])
     def profile(self, request):
-        serializer = self.get_serializer(request.user)
+        serializer = UserPublicSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # Register user → unified JWT response
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        user = serializer.save()
 
+        return Response(get_jwt_user_response(user), status=status.HTTP_201_CREATED)
+
+    # Email verification
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def verify_email(self, request):
         serializer = VerifyEmailSerializer(data=request.data)
@@ -78,6 +98,9 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
 
+# ===============================
+# JWT Login View
+# ===============================
 class LoginViewSet(TokenObtainPairView):
     """
     POST /api/accounts/login/
@@ -86,10 +109,15 @@ class LoginViewSet(TokenObtainPairView):
     permission_classes = [AllowAny]
 
 
+# ===============================
+# Google Login View
+# ===============================
 class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = GoogleLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+        user = serializer.validated_data["user_instance"]  # GoogleLoginSerializer returns user
+        return Response(get_jwt_user_response(user), status=status.HTTP_200_OK)

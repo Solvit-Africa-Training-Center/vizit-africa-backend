@@ -104,7 +104,7 @@ DATABASES = {
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT'),
         'OPTIONS': {
-            'sslmode': 'require',  # Required for Aiven
+            # 'sslmode': 'require',  # Required for Aiven
             'connect_timeout': 10,
         },
         'CONN_MAX_AGE': 0,  # Don't persist connections

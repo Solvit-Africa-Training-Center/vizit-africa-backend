@@ -65,17 +65,17 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         )
 
         send_verification_email(user.email, code)
-        refresh = RefreshToken.for_user(user)
-        return {
-            "refresh": str(refresh),
-            "access": str(refresh.access_token),
-            "user": {
-                "id": str(user.id),
-                "email": user.email,
-                "full_name": user.full_name,
-                "role": user.role,
-            },
-        }
+
+        return user
+class UserPublicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "email",
+            "full_name",
+            "role",
+        )
 
 # ===================================================
 # EMAIL VERIFICATION
