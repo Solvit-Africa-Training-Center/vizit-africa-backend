@@ -187,6 +187,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
+# ENV~
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]

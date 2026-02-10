@@ -4,6 +4,14 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from accounts.models import User, VerificationCode
 from accounts.utils.code_generator import generate_verification_code
 from accounts.utils.send_email import send_verification_email
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from rest_framework import serializers
+from django.conf import settings
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from accounts.models import User
+
 
 
 # ===================================================
@@ -112,3 +120,50 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         }
 
         return data
+
+class GoogleLoginSerializer(serializers.Serializer):
+    token = serializers.CharField()
+
+    def validate(self, attrs):
+        token = attrs.get("token")
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+        except Exception:
+            raise serializers.ValidationError("Invalid Google token")
+
+        email = idinfo.get("email")
+        full_name = idinfo.get("name")
+
+        if not email:
+            raise serializers.ValidationError("Email not provided by Google")
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "full_name": full_name,
+                "is_active": True, 
+            },
+        )
+
+        if created:
+            user.set_unusable_password()
+            user.save()
+
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role,
+            },
+        }
+
