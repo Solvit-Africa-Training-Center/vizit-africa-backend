@@ -1,9 +1,9 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import transaction
 from .models import BookingItem, Booking
-from .serializers import BookingItemSerializer, BookingSerializer
+from .serializers import BookingItemSerializer, BookingSerializer, TripSubmissionSerializer
 # Tickets related imports
 from rest_framework.decorators import api_view
 from tickets.models import Ticket
@@ -164,6 +164,120 @@ def download_ticket(request, booking_id):
         return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception:
         return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class TripSubmissionView(generics.CreateAPIView):
+    
+    serializer_class = BookingSerializer # Response serializer
+    permission_classes = [AllowAny]
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        # 1. Validate Payload
+        submission_serializer = TripSubmissionSerializer(data=request.data)
+        submission_serializer.is_valid(raise_exception=True)
+        data = submission_serializer.validated_data
+        
+        # 2. Extract Data
+        import datetime
+        guest_info = {}
+        for k, v in data.items():
+            if k == 'items':
+                continue
+            if isinstance(v, (datetime.date, datetime.datetime)):
+                guest_info[k] = v.isoformat()
+            else:
+                guest_info[k] = v
+        
+        items_data = data['items']
+        
+        # 3. Handle User (Authenticated or Guest)
+        user = request.user if request.user.is_authenticated else None
+        
+        if not user:
+            email = data.get('email')
+            if not email:
+                return Response({'error': 'Email is required for guest checkout'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            from accounts.models import User
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    'full_name': data.get('name', 'Guest User'),
+                    'role': 'CLIENT',
+                    'is_active': True 
+                }
+            )
+
+        # 4. Create Booking
+        booking = Booking.objects.create(
+            user=user,
+            total_amount=Decimal('0.00'), # Will calculate below
+            currency='USD',
+            status='pending',
+            guest_info=guest_info
+        )
+        
+        total = Decimal('0.00')
+        
+        # 4. Process Items
+        from services.models import Service
+        
+        for item in items_data:
+            # Skip notes/unknown types for now, or handle them
+            if item.get('type') == 'note':
+                continue
+                
+            external_id = item.get('id')
+            
+            # Find Service by external_id
+            service = Service.objects.filter(external_id=external_id).first()
+            
+            if not service:
+               
+                
+                
+                if item.get('type') == 'flight':
+                    
+                    pass # Logic to handle missing flights if dynamic
+                
+                if not service:
+                     
+                     
+                     if item.get('type') == 'flight':
+                         
+                         continue 
+
+            
+            
+            unit_price = service.base_price if service else Decimal(str(item.get('price', 0)))
+            quantity = item.get('quantity', 1)
+            
+            # Dates
+            start_date = data['departureDate']
+            end_date = data.get('returnDate') or start_date
+            
+            # Create Item
+            if service:
+                booking_item = BookingItem.objects.create(
+                    booking=booking,
+                    service=service,
+                    user=user,
+                    start_date=start_date,
+                    end_date=end_date,
+                    quantity=quantity,
+                    unit_price=unit_price,
+                    subtotal=unit_price * quantity,
+                    status='reserved'
+                )
+                total += booking_item.subtotal
+
+        # 5. Update Total
+        booking.total_amount = total
+        booking.save()
+        
+        # 6. Return Response
+        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])
